@@ -35,4 +35,4 @@ Or download the latest dist file:
 
 ##Customization
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Aniways Images are added the the chat wall and will contain the aniways-image class, go ahead and style it to fit your needs.
+Aniways Images are added the the chat wall and will contain the aniways-image class, go ahead and style it to fit your needs.
