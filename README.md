@@ -11,13 +11,13 @@ Getting started with Aniways is very easy and takes less than 10 minutes, just f
 
 ##Create your Aniways App  
 
-First, please go to [www.aniways.com](www.aniways.com) , add a new App, and get your App Id.
+First, please go to [www.aniways.com](http://www.aniways.com) , add a new App, and get your App Id.
 
 
 ##Installing the Aniways SDK  
 
 
-Install with [Bower](www.bower.io):  
+Install with [Bower](http://www.bower.io):  
 
 	bower install aniways
 
