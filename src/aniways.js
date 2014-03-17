@@ -1931,7 +1931,7 @@ function Analytics(appId, configuration){
     evt.timestamp = toTimeStamp(new Date());
     evt.applicationId = client.appId;
     evt.os = navigator.userAgent;
-    evt.abTest = configuration.versionName;
+    evt.abTest = configuration.versionName();
     evt.keywordsVersion = keywordsVersion;
     evt.message = messageDataAnalytics(eventData.message);
     evt.sentEvent = iconDataAnalytics(eventData.iconData);
@@ -1987,7 +1987,7 @@ function Analytics(appId, configuration){
     evt.partToReplace = tapData.partToReplace;
     evt.suggestedIconName = tapData.suggestedIconName;
     evt.keywordsVersion = keywordsVersion;
-    evt.abTest = configuration.versionName;
+    evt.abTest = configuration.versionName();
     fileName = toTimeStamp(new Date()) + "." + userId + ".json";
     client.uploadEvent(evt, fileName);
   };
@@ -2004,7 +2004,7 @@ function Analytics(appId, configuration){
     evt.partToReplace = selectData.partToReplace;
     evt.iconName = selectData.iconName;
     evt.keywordsVersion = keywordsVersion;
-    evt.abTest = configuration.versionName;
+    evt.abTest = configuration.versionName();
     evt.fromButton = false;
     fileName = toTimeStamp(new Date()) + "." + userId + ".json";
     client.uploadEvent(evt, fileName);
