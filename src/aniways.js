@@ -1327,6 +1327,10 @@ function Configuration(){
     return currentConfiguration.wallImageSize;
   };
 
+  this.versionName = function(){
+    return currentConfiguration.versionName;
+  };
+
 }
 
 window.Aniways = (function(){
