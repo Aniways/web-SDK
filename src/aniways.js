@@ -1278,7 +1278,7 @@ var AniwaysUtil = (function AniwaysUtil(){
 })();
 
 function Configuration(){
-  var configUrl = "http://api.aniways.com/configuration", configuration, _userConfiguration;
+  var configUrl = "http://api.aniways.com/configuration", _userConfiguration = {};
 
   var defaultConfiguration = {"AWcontextual": true, "AWanalytics": true, "inputImageSize": 20, "wallImageSize": 30, "popoverImageSize": 50};
   var storedConfiguration = JSON.parse(localStorage.getItem("aniwaysConfiguration"));
@@ -1301,7 +1301,9 @@ function Configuration(){
   }
 
   this.userConfiguration = function userConfiguration(config){
-    _userConfiguration = config;
+    _userConfiguration.inputImageSize = config.inputImageSize;
+    _userConfiguration.popoverImageSize = config.popoverImageSize;
+    _userConfiguration.wallImageSize = config.wallImageSize;
     $.extend(currentConfiguration, _userConfiguration);
   };
 
@@ -1925,7 +1927,7 @@ function Analytics(appId, configuration){
     evt.timestamp = toTimeStamp(new Date());
     evt.applicationId = client.appId;
     evt.os = navigator.userAgent;
-    evt.abTest = '';
+    evt.abTest = configuration.versionName;
     evt.keywordsVersion = keywordsVersion;
     evt.message = messageDataAnalytics(eventData.message);
     evt.sentEvent = iconDataAnalytics(eventData.iconData);
@@ -1981,7 +1983,7 @@ function Analytics(appId, configuration){
     evt.partToReplace = tapData.partToReplace;
     evt.suggestedIconName = tapData.suggestedIconName;
     evt.keywordsVersion = keywordsVersion;
-    evt.abTest = '';
+    evt.abTest = configuration.versionName;
     fileName = toTimeStamp(new Date()) + "." + userId + ".json";
     client.uploadEvent(evt, fileName);
   };
@@ -1998,7 +2000,7 @@ function Analytics(appId, configuration){
     evt.partToReplace = selectData.partToReplace;
     evt.iconName = selectData.iconName;
     evt.keywordsVersion = keywordsVersion;
-    evt.abTest = '';
+    evt.abTest = configuration.versionName;
     evt.fromButton = false;
     fileName = toTimeStamp(new Date()) + "." + userId + ".json";
     client.uploadEvent(evt, fileName);
