@@ -1280,7 +1280,7 @@ var AniwaysUtil = (function AniwaysUtil(){
 function Configuration(){
   var configUrl = "http://api.aniways.com/configuration", _userConfiguration = {};
 
-  var defaultConfiguration = {"AWcontextual": true, "AWanalytics": true, "inputImageSize": 20, "wallImageSize": 30, "popoverImageSize": 50};
+  var defaultConfiguration = {AWcontextual: true, AWanalytics: true, inputImageSize: 20, wallImageSize: 30, popoverImageSize: 50};
   var storedConfiguration = JSON.parse(localStorage.getItem("aniwaysConfiguration"));
   var currentConfiguration = defaultConfiguration;
 
@@ -1330,7 +1330,6 @@ function Configuration(){
   this.versionName = function(){
     return currentConfiguration.versionName;
   };
-
 }
 
 window.Aniways = (function(){
@@ -1339,7 +1338,7 @@ window.Aniways = (function(){
   var keywordsPath = "http://api.aniways.com/v2/keywords";
   var assetsPath = "http://api.aniways.com/v2/assets";
   var userId = localStorage.getItem('aniwaysUserId');
-  var decoder, analytics, aniwaysDiv, highliter, wallObserver;
+  var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
 
@@ -1353,7 +1352,7 @@ window.Aniways = (function(){
 
   function init(appId, userConfiguration){
     aniwaysDiv = document.getElementsByClassName('aniways-div')[0];
-    highliter = new Highliter(mapping);
+    highlighter = new Highlighter(mapping);
 
     if(userConfiguration !== undefined){
       configuration.userConfiguration(userConfiguration);
@@ -1398,7 +1397,7 @@ window.Aniways = (function(){
   function registerListners(){
     $('.aniways-div').on('keyup input', function(){
       if(configuration.isContextual() === false){return;}
-      var highlitedWords = highliter.highlight(this);
+      var highlitedWords = highlighter.highlight(this);
       addPopover(highlitedWords);
 
       function addPopover(highlightedWords){
@@ -1415,6 +1414,9 @@ window.Aniways = (function(){
     });
 
     $('body').on('click', '.aniways-highlight' ,function(evt) {
+      $('.popover:visible').prev().each(function (index, highlighted) {
+        $(highlighted).popover('hide');
+      });
       var word = $(evt.currentTarget);
       word.popover('show');
       var images = word.siblings('.popover.in').find('img.aniways-popover-image');
@@ -1464,7 +1466,7 @@ window.Aniways = (function(){
   function setMapping(responseText){
     mapping = JSON.parse(responseText);
     localStorage.setItem("aniwaysMappings", JSON.stringify(mapping));
-    highliter = new Highliter(mapping);
+    highlighter = new Highlighter(mapping);
     decoder = new Decoder(mapping, assetsNamesToUrls, configuration);
   }
 
@@ -1673,7 +1675,7 @@ function Encoder(aniwaysDiv, mapping){
           encodedMessage += encodeImage(childNode);
         }else if(childNode.nodeType === 3){
           encodedMessage += childNode.textContent;
-        }else {
+        }else if(childNode.className.indexOf('popover') === -1){
           encodedMessage += recEncodeText(childNode);
         }
       }
@@ -1719,7 +1721,7 @@ function Encoder(aniwaysDiv, mapping){
   };
 }
 
-function Highliter(mapping){
+function Highlighter(mapping){
 
   if(mapping === null){
     return {highlight: function(){return [];}};
@@ -1735,7 +1737,7 @@ function Highliter(mapping){
 
   var flag = "i";
   var pattern = "(" + words.join("|") + ")";
-  pattern = "\\b" + pattern + "\\b";
+  pattern = "(?:\\b|\\B(?=\\W))" + pattern + "(?:\\b|\\B(?=\\W)|$)";
   var re = new RegExp(pattern, flag);
 
   this.highlight = function highlight (node) {
