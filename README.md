@@ -58,7 +58,3 @@ Images in the `aniways-wall` element
 
 ####Caveats
 If you want to control the images height from css classes you need to use the `!important` directive or they will be ignored.
-
-##Requirements
-
-jQuery 1.9.0 or newer.
