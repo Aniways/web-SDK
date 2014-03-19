@@ -36,9 +36,8 @@ function scriptLoadHandler() {
 }
 
 /******** Our main function ********/
-function main() { 
-    jQuery(document).ready(function($) { 
-        // We can use jQuery 1.4.2 here
+function main() {
+  var $ = jQuery;
 
 /*
  * Copyright 2012 The Polymer Authors. All rights reserved.
@@ -2005,7 +2004,6 @@ function Analytics(appId, configuration){
   };
 }
 
-    });
 }
 
 })(); // We call our anonymous function immediately
