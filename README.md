@@ -50,11 +50,11 @@ sets the image size for images in the `aniways-wall` element
 
 Aniways Images are added the with specific classes
 #####aniways-wall-image
-Images in the `aniways-div` element
+Images in the `aniways-div` element.
 #####aniways-popover-image
-Images in the `popover` element
+Images in the `popover` element.
 #####aniways-wall-image
-Images in the `aniways-wall` element
+Images in the `aniways-wall` element.
 
 ####Caveats
 If you want to control the images height from css classes you need to use the `!important` directive or they will be ignored.
