@@ -1169,8 +1169,18 @@ var AniwaysUtil = (function AniwaysUtil(){
     }
   }
 
-  function sendXhr(method, url, headers, body, success, error) {
+  function sendXhr(method, url, headers, params, body, success, error) {
     var request;
+    if (params) {
+      url = url + "?";
+      for (var param in params) {
+        if (params.hasOwnProperty(param)) {
+          url= url + param + "=" + params[param] + "&";
+        }
+      }
+      url = url + 'platform=web';
+    }
+
     if(supportsXhr()){
       request = new XMLHttpRequest();
 
@@ -1203,7 +1213,9 @@ var AniwaysUtil = (function AniwaysUtil(){
       }
     };
 
+
     var toSend = body ? JSON.stringify(body) : null;
+
     request.send(toSend);
   }
 
@@ -1217,8 +1229,8 @@ var AniwaysUtil = (function AniwaysUtil(){
    * @param {Function} [success] Invoked on success
    * @param {Function} [error] Invoked on failure
    */
-  function getJson(url, success, error) {
-    sendXhr("GET", url, null, null, success, error);
+  function getJson(url, params, success, error) {
+    sendXhr("GET", url, null, params, null, success, error);
   };
 
   return {sendXhr: sendXhr, getJson: getJson }
@@ -1231,7 +1243,7 @@ function Configuration(){
   var storedConfiguration = JSON.parse(localStorage.getItem("aniwaysConfiguration"));
   var currentConfiguration = defaultConfiguration;
 
-  AniwaysUtil.getJson(configUrl, configure, ajaxError);
+  AniwaysUtil.getJson(configUrl, null, configure, ajaxError);
 
   function configure(responseText){
     var newConfiguration = JSON.parse(responseText);
@@ -1288,9 +1300,8 @@ window.Aniways = (function(){
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
+  var sdkVersion = {"version": "2.0.0"};
 
-  AniwaysUtil.getJson(keywordsPath, setMapping);
-  AniwaysUtil.getJson(assetsPath, setAssets, ajaxError);
 
   if(userId === null){
     userId = guid();
@@ -1310,6 +1321,9 @@ window.Aniways = (function(){
       console.log("appId can not be undefined, please specify your appId in the init call");
       return false;
     }
+
+    AniwaysUtil.getJson(keywordsPath, {sdkVersion:sdkVersion.version, appId: appId}, setMapping);
+    AniwaysUtil.getJson(assetsPath, {sdkVersion:sdkVersion.version, appId: appId}, setAssets, ajaxError);
 
     analytics = new Analytics(appId, configuration);
 
@@ -1361,11 +1375,16 @@ window.Aniways = (function(){
     });
 
     $('body').on('click', '.aniways-highlight' ,function(evt) {
+      var word = $(evt.currentTarget);
+      var popover = word.next('div.popover');
+      var wasVisible = popover.is(':visible');
+
       $('.popover:visible').prev().each(function (index, highlighted) {
         $(highlighted).popover('hide');
       });
-      var word = $(evt.currentTarget);
-      word.popover('show');
+
+      if(!wasVisible){ word.popover('show'); }
+
       var images = word.siblings('.popover.in').find('img.aniways-popover-image');
       var tapData = {phrase: word.data('phrase'), partToReplace: word.data('phrase'), suggestedIconName:[]};
       images.each(function(index, image){
@@ -1373,7 +1392,6 @@ window.Aniways = (function(){
 
       });
       analytics.tapAnalytics(userId, currentMessageID, mapping.version, tapData);
-      evt.stopPropagation();
     });
 
     $('body').on('click', function (e) {
@@ -1414,13 +1432,13 @@ window.Aniways = (function(){
     mapping = JSON.parse(responseText);
     localStorage.setItem("aniwaysMappings", JSON.stringify(mapping));
     highlighter = new Highlighter(mapping);
-    decoder = new Decoder(mapping, assetsNamesToUrls, configuration);
+    decoder.setMapping(mapping);
   }
 
   function setAssets(responseText){
     assetsNamesToUrls = JSON.parse(responseText).assets;
     localStorage.setItem("aniwaysAssets", JSON.stringify(assetsNamesToUrls));
-    decoder = new Decoder(mapping, assetsNamesToUrls, configuration);
+    decoder.setAssetsToUrls(assetsNamesToUrls);
   }
 
   function replaceWithImage(evt){
@@ -1450,11 +1468,12 @@ window.Aniways = (function(){
   }
 
   function generatePopupHtml(spanNode){
-    var assets = "", imagePath;
+    var assets = "", imagePath, imageId;
     var phrase = spanNode.data('phrase');
-    var imageCount = mapping.phrasesToIcons[phrase][phrase].length;
+    var imageCount = mapping.phrasesToIcons[phrase][""].length;
     for (var i=0; i< imageCount; i++){
-      imagePath = assetsNamesToUrls[mapping.phrasesToIcons[phrase][phrase][i]];
+      imageId = mapping.phrasesToIcons[phrase][""][i];
+      imagePath = assetsNamesToUrls[imageId + ".png"];
       imagePath = imagePath.substring(0, imagePath.indexOf("::"));
       assets += "<img class='aniways-popover-image' style=height:" +
         configuration.popoverImageSize() + "px; src=" + imagePath + " data-phrase=" + phrase + "></img>";
@@ -1470,6 +1489,10 @@ window.Aniways = (function(){
 
 function Decoder(phraseMapping, assetsToUrls, configuration){
 
+  var _phraseMapping = phraseMapping;
+
+  var _assetsToUrls = assetsToUrls;
+
   this.decodeMessage = function decodeMessage(message){
     try {
       return unicodeDecoding(message);
@@ -1478,6 +1501,14 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         return urlDecoding(message);
       }
     }
+  };
+
+  this.setMapping = function(mapping){
+    _phraseMapping = mapping;
+  };
+
+  this.setAssetsToUrls = function(assets){
+    _assetsToUrls = assets;
   };
 
   function unicodeToDecimal(unicodeString){
@@ -1534,7 +1565,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
 
 
   function unicodeDecoding(message){
-    if (phraseMapping === null || assetsToUrls === null) { return message; }
+    if (_phraseMapping === null || _assetsToUrls === null) { return message; }
     var messageEncodingData = extractUnicodeEncodingData(message);
     var strippedMessage = messageEncodingData.message;
     var html = "";
@@ -1542,7 +1573,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     for (var i=0; i<messageEncodingData.data.length; i++ ) {
       var encodingData = messageEncodingData.data[i];
 
-      var imagePath = assetsToUrls[phraseMapping.iconIdsToNames[encodingData.imageId]];
+      var imagePath = _assetsToUrls[encodingData.imageId + ".png"];
       if(imagePath === undefined){
         html += strippedMessage.substring(start, encodingData.phraseEnd);
         start = encodingData.phraseEnd;
@@ -1581,7 +1612,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     var html = "";
     var start = 0;
     for (var j = 0; j < count; j++) {
-      var imagePath = assetsToUrls[encodingData['id' + j]];
+      var imagePath = _assetsToUrls[encodingData['id' + j] + ".png"];
       imagePath = imagePath.substring(0, imagePath.indexOf("::"));
       html += originalMessage.substring(start, parseInt(encodingData['si' + j]));
       html += "<img class='aniways-wall-image' style=height:" +
@@ -1632,7 +1663,7 @@ function Encoder(aniwaysDiv, mapping){
     function encodeImage(imageNode){
       var encodedString = "";
       var imageName = imageNode.src.replace(/^.*[\\\/]/, '');
-      var id = Object.keys(mapping.iconIdsToNames).filter(function(key) {return mapping.iconIdsToNames[key] === imageName;})[0];
+      var id = imageName.substr(0, imageName.indexOf('.'));
       var unicodeString = decimalToUnicode(id);
       return unicodeString +"\u200B" + $(imageNode).data('phrase') + "\u200B\u200B";
     }
@@ -1676,11 +1707,15 @@ function Highlighter(mapping){
   var words =  Object.keys(mapping.phrasesToIcons);
 
   words = jQuery.grep(words, function(word, i){
-    return (word !== '' && mapping.phrasesToIcons[word][word] !== undefined);
+    return (word !== '' && mapping.phrasesToIcons[word][""] !== undefined);
   });
   words = jQuery.map(words, function(word, i) {
     return word.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
   });
+
+  if(words.length === 0){
+    return {highlight: function(){return [];}};
+  }
 
   var flag = "i";
   var pattern = "(" + words.join("|") + ")";
@@ -1831,6 +1866,8 @@ function WallObserver(wall, decoder){
   // configuration of the observer:
   var config = { childList: true, subtree: true };
 
+  var _decoder = decoder;
+
   // pass in the target node, as well as the observer options
   observer.observe(wall[0], config);
 
@@ -1855,11 +1892,12 @@ function WallObserver(wall, decoder){
         message = node.getElementsByClassName('aniways-message');
       }
       if(message.length > 0){
-        var decodedMessage = decoder.decodeMessage(message[0].innerHTML);
+        var decodedMessage = _decoder.decodeMessage(message[0].innerHTML);
         message[0].innerHTML = decodedMessage;
       }
     }
   }
+
 }
 
 function Analytics(appId, configuration){
@@ -2000,7 +2038,7 @@ function Analytics(appId, configuration){
     headers["x-amz-storage-class"] = "REDUCED_REDUNDANCY";
     headers["Content-Type"] = "application/json";
 
-    AniwaysUtil.sendXhr("PUT", url, headers, newEvent);
+    AniwaysUtil.sendXhr("PUT", url, headers, null, newEvent);
   };
 }
 
