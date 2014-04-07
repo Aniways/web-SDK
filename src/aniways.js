@@ -927,7 +927,7 @@ if (typeof WeakMap === 'undefined') {
 
   Tooltip.prototype.getCalculatedOffset = function (placement, pos, actualWidth, actualHeight) {
     return placement == 'bottom' ? { top: pos.top + pos.height,   left: pos.left + pos.width / 2 - actualWidth / 2  } :
-           placement == 'top'    ? { top: pos.top - actualHeight, left: pos.left + pos.width / 2 - actualWidth / 2  } :
+           placement == 'top'    ? { top: pos.top - actualHeight - 7, left: pos.left + pos.width / 2 - actualWidth / 2  } :
            placement == 'left'   ? { top: pos.top + pos.height / 2 - actualHeight / 2, left: pos.left - actualWidth } :
         /* placement == 'right' */ { top: pos.top + pos.height / 2 - actualHeight / 2, left: pos.left + pos.width   }
   }
@@ -1239,9 +1239,21 @@ var AniwaysUtil = (function AniwaysUtil(){
 function Configuration(){
   var configUrl = "http://api.aniways.com/configuration", _userConfiguration = {};
 
-  var defaultConfiguration = {AWcontextual: true, AWanalytics: true, inputImageSize: 20, wallImageSize: 30, popoverImageSize: 50};
+  var defaultConfiguration = {
+    AWcontextual: true,
+    AWanalytics: true,
+    inputImageSize: 20,
+    wallImageSize: 30,
+    popoverImageSize: 50,
+    highlightColor: 'lightgreen',
+    encoding : {
+      mapping: { 0: "\u200B", 1: "\u200C", 2: "\u200D", 3: "\ufeff" },
+      delimiter: "\u200B",
+      chunckSize: 6
+    }
+  };
   var storedConfiguration = JSON.parse(localStorage.getItem("aniwaysConfiguration"));
-  var currentConfiguration = defaultConfiguration;
+  var currentConfiguration = $.extend(currentConfiguration, defaultConfiguration, storedConfiguration);
 
   AniwaysUtil.getJson(configUrl, null, configure, ajaxError);
 
@@ -1263,6 +1275,7 @@ function Configuration(){
     _userConfiguration.inputImageSize = config.inputImageSize;
     _userConfiguration.popoverImageSize = config.popoverImageSize;
     _userConfiguration.wallImageSize = config.wallImageSize;
+    _userConfiguration.highlightColor = config.highlightColor;
     $.extend(currentConfiguration, _userConfiguration);
   };
 
@@ -1289,6 +1302,32 @@ function Configuration(){
   this.versionName = function(){
     return currentConfiguration.versionName;
   };
+
+  this.highlightColor = function(){
+    return currentConfiguration.highlightColor;
+  };
+
+  this.encoding = function(){
+    return currentConfiguration.encoding;
+  };
+
+  this.decoding = function(){
+    return invert(currentConfiguration.encoding.mapping);
+  };
+
+  function invert (obj) {
+
+    var newObj = {};
+
+    for (var prop in obj) {
+      if(obj.hasOwnProperty(prop)) {
+        newObj[obj[prop]] = prop;
+      }
+    }
+
+    return newObj;
+  }
+
 }
 
 window.Aniways = (function(){
@@ -1300,7 +1339,7 @@ window.Aniways = (function(){
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
-  var sdkVersion = {"version": "2.0.0"};
+  var sdkVersion = {"version": "2.3.1"};
 
 
   if(userId === null){
@@ -1341,7 +1380,7 @@ window.Aniways = (function(){
 
   function encodeText(nodeToEncode){
     nodeToEncode = nodeToEncode || aniwaysDiv;
-    var encodedText = new Encoder(nodeToEncode, mapping).encodeText();
+    var encodedText = new Encoder(nodeToEncode, mapping, configuration).encodeText();
     var eventData = collectEventData(aniwaysDiv, encodedText);
     $(nodeToEncode)[0].innerHTML = "";
     currentMessageID = guid();
@@ -1365,6 +1404,7 @@ window.Aniways = (function(){
         $.each(highlightedWords, function(index, word){
           word = $(word);
           word.attr('data-phrase', word.text().toLowerCase());
+          word.css('background-color', configuration.highlightColor);
           $(word).popover({selector:'.aniways-highlight', html: true, placement: 'top', content: generatePopupHtml($(word)), trigger: 'manual'});
         });
       }
@@ -1493,6 +1533,8 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
 
   var _assetsToUrls = assetsToUrls;
 
+  var _unicodeMapping = configuration.decoding();
+
   this.decodeMessage = function decodeMessage(message){
     try {
       return unicodeDecoding(message);
@@ -1512,14 +1554,14 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
   };
 
   function unicodeToDecimal(unicodeString){
-    var base4Integer = "", radix = 4;
-    var unicodeMapping = { "\u200B": 0, "\u200C": 1, "\u200D": 2, "\ufeff": 3 };
+    var radix = Object.keys(_unicodeMapping).length;
+    var baseId = "";
     for (var i = 0;  i < unicodeString.length; i+=1) {
-      var mappedUnicode = unicodeMapping[unicodeString.charAt(i)];
+      var mappedUnicode = _unicodeMapping[unicodeString.charAt(i)];
       if(mappedUnicode === undefined){ return -1; }
-      base4Integer = base4Integer + unicodeMapping[unicodeString.charAt(i)];
+      baseId = baseId + _unicodeMapping[unicodeString.charAt(i)];
     }
-    return parseInt(base4Integer, radix);
+    return parseInt(baseId, radix);
   }
 
   function extractUnicodeEncodingData(message){
@@ -1527,7 +1569,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     var encodingData = {};
     var messageLength = message.length;
     for (var messageIndex = 0; messageIndex < messageLength; messageIndex++) {
-      if (message.charCodeAt( messageIndex ) > 255) {
+      if (_unicodeMapping[message.charAt( messageIndex )] !== undefined) {
         encodingData = {};
         encodingData.phraseStart = messageIndex;
         message = removeAndRecordImageID(encodingData, message, messageIndex);
@@ -1546,8 +1588,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
   }
 
   function removeAndRecordImageID(encodingData, message, messageIndex){
-    var lengthMapping = { "\u200B": 5, "\u200C": 11, "\u200D": 17, "\ufeff": 23 };
-    var imageEncodingLength = lengthMapping[message.charAt(messageIndex)];
+    var imageEncodingLength = (_unicodeMapping[message.charAt(messageIndex)] * configuration.encoding().chunckSize) + (configuration.encoding().chunckSize - 1);
     var unicodeString = message.substr(messageIndex + 1, imageEncodingLength);
     encodingData.imageId = unicodeToDecimal(unicodeString);
     if(encodingData.imageId === -1){throw new AniwaysEncodingError("Mallformed image encoding");}
@@ -1555,8 +1596,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
   }
 
   function removeAndRecordDelimiter(encodingData, section, message, messageIndex){
-    var delimiter = 8203;
-    encodingData[section] = message.indexOf(String.fromCharCode(delimiter), messageIndex);
+    encodingData[section] = message.indexOf(configuration.encoding().delimiter, messageIndex);
     if(encodingData[section] === -1){
       throw new AniwaysEncodingError("Can't find " + section + " delimiter");
     }
@@ -1582,7 +1622,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         imagePath = imagePath.substring(0, imagePath.indexOf("::"));
         html += strippedMessage.substring(start, encodingData.subPhraseStart);
         html += "<img class='aniways-wall-image' style=height:" +
-        configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" +
+          configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" +
           strippedMessage.substring(
             encodingData.subPhraseStart, encodingData.subPhraseEnd) +
           "'>";
@@ -1639,7 +1679,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
 
 }
 
-function Encoder(aniwaysDiv, mapping){
+function Encoder(aniwaysDiv, mapping, configuration){
 
   this.encodeText = function encodeText(){
     return recEncodeText(aniwaysDiv);
@@ -1665,33 +1705,34 @@ function Encoder(aniwaysDiv, mapping){
       var imageName = imageNode.src.replace(/^.*[\\\/]/, '');
       var id = imageName.substr(0, imageName.indexOf('.'));
       var unicodeString = decimalToUnicode(id);
-      return unicodeString +"\u200B" + $(imageNode).data('phrase') + "\u200B\u200B";
+      return unicodeString + configuration.encoding().delimiter + $(imageNode).data('phrase') + configuration.encoding().delimiter + configuration.encoding().delimiter;
     }
 
     function decimalToUnicode(id){
-      var unicodeMapping = { 0: "\u200B", 1: "\u200C", 2: "\u200D", 3: "\ufeff" };
-      var base4Id = parseInt(id, 10).toString(4), encodedId = "", digit = 0;
-      var lengthBit = "", encodingLength = 0;
-      if(base4Id.length <=5){
-        lengthBit = "\u200B";
-        encodingLength = 5;
-      } else if (base4Id.length >= 6 && base4Id.length <= 11){
-        lengthBit = "\u200C";
-        encodingLength = 11;
-      } else if (base4Id.length >= 12 && base4Id.length <= 17){
-        lengthBit = "\u200D";
-        encodingLength = 17;
-      } else {
-        lengthBit = "\ufeff";
-        encodingLength = 23;
+      var unicodeMapping = configuration.encoding().mapping;
+      var base = Object.keys(unicodeMapping).length;
+      var baseId = parseInt(id, 10).toString(base), encodedId = "", digit = 0;
+      var lengthBit = "", encodingLength = 0, baseIndex, encodingIndex;
+
+      for(baseIndex = 0; baseIndex < base; baseIndex++){
+        encodingLength = configuration.encoding().chunckSize - 1 + (baseIndex * configuration.encoding().chunckSize);
+        lengthBit = unicodeMapping[baseIndex];
+        if(baseId.length <= encodingLength){
+          break;
+        }
       }
-      for(var i = 0; i< encodingLength; i++){
-        if (base4Id > 0){
-          digit = base4Id % 10;
+
+      if (baseIndex === base) {
+        throw new AniwaysEncodingError('Cannot encode image');
+      }
+
+      for(encodingIndex = 0; encodingIndex< encodingLength; encodingIndex++){
+        if (baseId > 0){
+          digit = baseId % 10;
           encodedId = unicodeMapping[digit] + encodedId;
-          base4Id = Math.floor(base4Id/10);
+          baseId = Math.floor(baseId/10);
         }else{
-          encodedId = "\u200B" + encodedId;
+          encodedId = unicodeMapping[0] + encodedId;
         }
       }
       return lengthBit + encodedId;

@@ -519,3 +519,13 @@ hr {
   width: auto;
   cursor: pointer;
 }
+
+.popover {
+  border-radius: 20px;
+  background-color: lightgray;
+  max-width: none;
+  .aniways-popover-image {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
