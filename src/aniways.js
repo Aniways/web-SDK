@@ -1248,7 +1248,7 @@ function Configuration(){
     highlightColor: 'lightgreen',
     encoding : {
       mapping: { 0: "\u200B", 1: "\u200C", 2: "\u200D", 3: "\ufeff" },
-      delimiter: "\u200B",
+      delimiter: "\u200C",
       chunckSize: 6
     }
   };
@@ -1339,7 +1339,7 @@ window.Aniways = (function(){
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
-  var sdkVersion = {"version": "2.3.1"};
+  var sdkVersion = {"version": "2.3.2"};
 
 
   if(userId === null){
@@ -1573,9 +1573,9 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         encodingData = {};
         encodingData.phraseStart = messageIndex;
         message = removeAndRecordImageID(encodingData, message, messageIndex);
-        message = removeAndRecordDelimiter(encodingData, "subPhraseStart", message, messageIndex);
-        message = removeAndRecordDelimiter(encodingData, "subPhraseEnd", message, messageIndex);
-        message = removeAndRecordDelimiter(encodingData, "phraseEnd", message, messageIndex);
+        message = removeAndRecordStartingDelimiter(encodingData, "subPhraseStart", message, messageIndex);
+        message = removeAndRecordEndingDelimiter(encodingData, "subPhraseEnd", message, messageIndex);
+        message = removeAndRecordEndingDelimiter(encodingData, "phraseEnd", message, messageIndex);
         messageEncodingData.data.push(encodingData);
         messageIndex = encodingData.phraseEnd;
         messageLength = message.length;
@@ -1595,12 +1595,21 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     return message.substr(0, messageIndex) + message.substr(messageIndex + imageEncodingLength + 1);
   }
 
-  function removeAndRecordDelimiter(encodingData, section, message, messageIndex){
+  function removeAndRecordStartingDelimiter(encodingData, section, message, messageIndex){
     encodingData[section] = message.indexOf(configuration.encoding().delimiter, messageIndex);
     if(encodingData[section] === -1){
       throw new AniwaysEncodingError("Can't find " + section + " delimiter");
     }
     return message.substr(0, encodingData[section]) + message.substr(encodingData[section] + 1);
+  }
+
+  function removeAndRecordEndingDelimiter(encodingData, section, message, messageIndex){
+    var indexOfDelimiter = message.indexOf(configuration.encoding().delimiter, messageIndex);
+    if(indexOfDelimiter === -1){
+      throw new AniwaysEncodingError("Can't find " + section + " delimiter");
+    }
+    encodingData[section] = indexOfDelimiter - 1;
+    return message.substr(0, indexOfDelimiter) + message.substr(indexOfDelimiter + 1);
   }
 
 
@@ -1624,9 +1633,9 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         html += "<img class='aniways-wall-image' style=height:" +
           configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" +
           strippedMessage.substring(
-            encodingData.subPhraseStart, encodingData.subPhraseEnd) +
+            encodingData.subPhraseStart, encodingData.subPhraseEnd + 1) +
           "'>";
-        start = encodingData.subPhraseEnd;
+        start = encodingData.subPhraseEnd + 1;
       }
     }
     html += strippedMessage.substring(start);
