@@ -1154,13 +1154,415 @@ if (typeof WeakMap === 'undefined') {
 
         self.applyPlacement(calculatedOffset, placement)
         self.$tip.attr('contenteditable', false)
+        self.$tip.addClass('aniways-popover')
 
         self.$element.trigger('shown.bs.shown')
       });
   }
 }($);
 
+(function ($) {
+	$(document).on('change keydown keypress input', '*[data-placeholder]', function() {
+		if (this.textContent) {
+			this.setAttribute('data-div-placeholder-content', 'true');
+		}
+		else {
+			this.removeAttribute('data-div-placeholder-content');
+		}
+	});
+})(jQuery);
+
+/*
+ * jQuery Touchable
+ *
+ * Simplified BSD License (@see License)
+ * @author        Gregor Schwab
+ * @copyright     (c) 2010 Gregor Schwab
+ * Usage Command Line: $(elem).Touchable() (@see Readme.md)
+ * @version 0.0.5
+ * @requires jQuery
+ */
+
+(function($) {
+
+   $.fn.Touchable = function(conf) {
+		
+		return this.each(function() {
+			
+			var t= $(this).data['Touchable']=new Touchable(this, conf);
+			return t;
+			
+		});
+		
+	};
+	
+	$.fn.newHover = function(fn1, fn2, disableHover) {
+		
+		return this.each(function() {
+			
+			$(this).bind('newHoverIn', fn1).bind('newHoverOut', fn2);
+			
+		});
+		
+	};
+	
+	$.fn.newHover2 = function(fn1, fn2) {
+		
+		return this.each(function() {
+			
+			$(this).bind('newHoverIn2', fn1).bind('newHoverOut2', fn2);
+			
+		});
+		
+	};
+
+    $.Touchable=Touchable;
+
+   /**
+    * @constructor
+    */
+    function Touchable(elem, conf){
+	   
+		function addEventListener(el, eventName, eventHandler, capture){
+			
+			capture = capture === true ? capture : false;
+			
+			if (el.addEventListener){
+				
+				el.addEventListener(eventName, eventHandler, capture); 
+			
+			} else if (el.attachEvent){
+				
+				el.attachEvent('on'+eventName, eventHandler);
+			
+			}
+			
+		}
+	   
+		function removeEventListener(el, eventName, eventHandler, capture){
+			
+			capture = capture === true ? capture : false;
+			
+			if (el.removeEventListener){
+				
+				el.removeEventListener(eventName,eventHandler, capture);
+				
+			}else if (el.detachEvent){
+				
+				el.detachEvent ('on'+eventName,eventHandler);
+				
+			}
+			
+		}
+
+		//private logging function
+		function log(a){
+			
+			if(self.logging){
+				
+				if(typeof console !== 'undefined'){
+					
+					console.log(a);
+					
+				}else{
+					
+					$('body').append('<br /> * ' + a);
+					
+				}
+				
+			}
+		
+		}
+		
+		function touchstart (e) {
+			
+			if(e.originalEvent && typeof e.originalEvent.touches !== 'undefined'){
+					
+				log('Touchable Touchstart touches length ' + e.originalEvent.touches.length);
+				
+				//only handle 1 or 2 touches
+				if (e.originalEvent.touches.length !== 1 && e.originalEvent.touches.length !== 2) {
+					
+					return false;
+					
+				}
+				
+				if (self.isCurrentlyTouching) {
+					
+					return false;
+				
+				}
+				
+				self.isCurrentlyTouching = true;
+				
+				if (e.originalEvent.touches.length == 1) { //1 finger
+					
+					self.isOneFingerGesture = true;
+					//init pos
+					self.startTouch.x = self.previousTouch.x = e.originalEvent.touches[0].clientX;
+					self.startTouch.y = self.previousTouch.y = e.originalEvent.touches[0].clientY;
+					
+				} else if (e.originalEvent.touches.length == 2) { //two fingers
+					
+					self.isOneFingerGesture = false;
+					
+					if (e.originalEvent.touches[0].clientY > e.originalEvent.touches[1].clientY) {//0 is lower
+						
+						self.startTouch.x = self.previousTouch.x = e.originalEvent.touches[0].clientX;
+						self.startTouch.y = self.previousTouch.y = e.originalEvent.touches[0].clientY;
+					
+					} else {
+						
+						self.startTouch.x = self.previousTouch.x = self.touches[1].clientX;
+						self.startTouch.y = self.previousTouch.y = self.touches[1].clientY;
+					
+					}
+				
+				}
+				
+			}else{
+				
+				log('Touchable Touchstart touches length ' + e.pageX + ' ' + e.pageY);
+				self.startTouch.x = self.previousTouch.x = e.pageX;
+				self.startTouch.y = self.previousTouch.y = e.pageY;
+				$(document).bind('mousemove', touchmove);
+				$(document).bind('mouseup', touchend);
+				
+			}
+			
+			//don't shallow links, but all the rest
+			self.target=e.target;//some browser loose the info here
+			self.currentTarget=e.currentTarget;//some browser loose the info here so save it for later
+			var x=self.startTouch.x; var y=self.startTouch.y;
+			self.hitTarget = ( document.elementFromPoint ) ? (document.elementFromPoint(x, y)):'';
+			
+			//setup double tapping
+			if (!self.inDoubleTap) {
+					
+				self.inDoubleTap = true;
+				//setup a timer
+				self.doubleTapTimer = setTimeout(function() {
+					
+					self.inDoubleTap = false;
+					
+				}, 500);
+				
+			} else {//we are double tapping
+				
+				// call function to run if double-tap
+				log('Touchable doubleTap');
+				self.$elem.trigger('doubleTap', self); //trigger a doubleTap
+				//reset doubleTap state
+				clearTimeout(self.doubleTapTimer);
+				self.inDoubleTap = false;
+				
+			}
+			
+			//setup long tapping and long mousedown
+			//setup a timer
+			self.longTapTimer = setTimeout(function() {
+				
+				log('Touchable longTap'/*, self.hitTarget, self.target, self.currentTarget, self.elem*/);
+				$(self.elem).trigger('longTap', self); //trigger a longTap
+				
+			}, 1000);
+			log('Touchable Tap');
+			$(self.elem).trigger('tap', self); //trigger a tap
+			$(self.elem).trigger('touchablestart', self); //trigger a tap
+			
+		}
+
+
+		//called on iPad/iPhone when touches started and the finger is moved
+		function touchmove(e) {
+			
+			if (e.originalEvent && typeof e.originalEvent.touches !== 'undefined'){
+				
+				log('Touchable Touchsmove touches length ' + e.originalEvent.touches.length);
+				
+				if (e.originalEvent.touches.length !== 1 && e.originalEvent.touches.length !== 2){ //use touches to track all fingers on the screen currently (also the ones not in the pane) if there are more than 2 its a gesture
+					
+					return false;
+					
+				}
+				
+				//1 finger
+				if (e.originalEvent.touches.length == 1 || self.isOneFingerGesture) {//we ignore the second finger if we are already in movement
+					
+					self.currentTouch.x = e.originalEvent.touches[0].clientX;
+					self.currentTouch.y = e.originalEvent.touches[0].clientY;
+					
+				} else if (e.originalEvent.touches.length == 2 && !self.isOneFingerGesture) {//two fingers move , take the upper finger as reference
+					
+					if (e.originalEvent.touches[0].clientY > e.originalEvent.touches[1].clientY) {//0 is lower
+						
+						self.currentTouch.x = e.originalEvent.touches[0].clientX;
+						self.currentTouch.y = e.originalEvent.touches[0].clientY;
+						
+					} else {
+						
+						self.currentTouch.x = e.originalEvent.touches[1].clientX;
+						self.currentTouch.y = e.originalEvent.touches[1].clientY;
+						
+					}
+					
+				}
+				
+			}else{
+				
+				e.preventDefault();
+				self.currentTouch.x = e.pageX;
+				self.currentTouch.y = e.pageY;
+			
+			}
+			
+			//if we are moving stop any css animations currently running
+			$(self.elem).removeClass('webkitAnimate');
+			self.currentDelta.x = (self.currentTouch.x - self.previousTouch.x);///s.currentScale;
+			self.currentDelta.y = (self.currentTouch.y - self.previousTouch.y);///s.currentScale;
+			self.currentStartDelta.x = (self.currentTouch.x - self.startTouch.x);///s.currentScale;
+			self.currentStartDelta.y = (self.currentTouch.y - self.startTouch.y);///s.currentScale;
+			//just for the records (accumulation)
+			self.currentPosition.x = self.currentPosition.x + self.currentDelta.x;
+			self.currentPosition.y = self.currentPosition.y + self.currentDelta.y;
+			//reset the start position for the next delta
+			self.previousTouch.x = self.currentTouch.x;
+			self.previousTouch.y = self.currentTouch.y;
+			log('Touchable Touchablemove self e.target' + e.target + 'e.currentTarget '+ e.currentTarget +' x:'+ self.currentStartDelta.x);
+			//Target handling
+			self.target=e.target;//some browser loose the info here
+			self.currentTarget=e.currentTarget;//some browser loose the info here so save it for later
+			var x=self.currentTouch.x; var y=self.currentTouch.y;
+			self.hitTarget = ( document.elementFromPoint ) ? (document.elementFromPoint(x, y)):'';
+			$(self.elem).trigger('touchablemove', self);
+			
+			//clear the long tap timer on mousemove
+			if (self.longTapTimer){
+				
+				clearTimeout(self.longTapTimer);
+				
+			}
+		
+		}
+
+		function touchend(e) {
+			
+			if (e.originalEvent && typeof e.originalEvent.touches !== 'undefined'){
+				
+				if (e.originalEvent.targetTouches.length > 0){
+					
+					return false;
+					
+				}
+				
+			}else{
+				
+				$(document).unbind('mousemove', touchmove);
+				$(document).unbind('mouseup', touchend);
+			
+			}
+			
+			self.isCurrentlyTouching = false;
+			
+			//clear the long tap timer on mouseup
+			if (self.longTapTimer){
+				
+				clearTimeout(self.longTapTimer);
+			
+			}
+			
+			log('Touchable Touchend self ' + self.currentStartDelta.x);
+			$(self.elem).trigger('touchableend', self);
+			log('Touchable: touchableend');
+			log('Touchable: Hittarget click');
+			
+		}
+
+		this.logging=false; //set to false to disabele logging gets overwritten by conf see below
+		this.elem=elem;
+		this.$elem=$(elem);
+		this.is_doubleTap=false;
+		this.is_currentlyTouching=false;
+		this.isOneFingerGesture = false;
+		this.startTouch={x:0,y:0};
+		this.currentTouch={x:0,y:0};
+		this.previousTouch={x:0,y:0};
+		this.currentDelta={x:0,y:0};//measured from previous move event
+		this.currentStartDelta={x:0,y:0}; //measured from start
+		this.currentPosition={x:0,y:0};
+		this.doubleTapTimer=null;
+		this.longTapTimer=null;
+		this.touchStartSupported=false;
+
+		var self=this;
+
+		if (typeof conf!=='undefined'){
+			
+			if(typeof conf.logging!=='undefined'){
+				
+				this.logging=conf.logging;
+				
+			}
+			
+			if(typeof conf.preventClick!=='undefined'){
+				
+				this.preventClick=conf.preventClick;
+				
+			}
+			
+		}
+			
+		this.$elem.bind('touchstart', function(e){
+			self.touchStartSupported = true;
+			touchstart(e);
+		});
+		this.$elem.bind('mousedown', function(e){
+			if(!self.touchStartSupported){
+				touchstart(e);
+			}
+			return false;
+		});
+		this.$elem.bind('touchmove', touchmove);
+		this.$elem.bind('touchend', touchend);
+		
+		if (this.preventClick) {
+			this.$elem.bind('click', function (e) {
+				e.preventDefault();
+			});
+		}
+
+    }
+    
+})(jQuery);//end closure
+
 var AniwaysUtil = (function AniwaysUtil(){
+
+  function placeCaretAfterNode(node) {
+    var sel = rangy.getSelection();
+    if (sel.rangeCount) {
+      var range = sel.getRangeAt(0);
+      range.collapse(false);
+      range.collapseAfter(node);
+      sel.setSingleRange(range);
+    }
+  }
+
+  function isAndroid(){
+    var ua = navigator.userAgent.toLowerCase();
+    return ua.indexOf("android") > -1; //&& ua.indexOf("mobile");
+  }
+
+  function isIE() {
+
+    var ua = window.navigator.userAgent;
+    var msie = ua.indexOf("MSIE ");
+
+    if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+      return true
+    else
+      return false;
+  }
+
   function supportsXhr() {
     if (typeof XMLHttpRequest === 'undefined') {
       return false;
@@ -1233,7 +1635,13 @@ var AniwaysUtil = (function AniwaysUtil(){
     sendXhr("GET", url, null, params, null, success, error);
   };
 
-  return {sendXhr: sendXhr, getJson: getJson }
+  return {
+    sendXhr: sendXhr,
+    getJson: getJson,
+    placeCaretAfterNode: placeCaretAfterNode,
+    isAndroid: isAndroid,
+    isIE: isIE
+  }
 })();
 
 function Configuration(){
@@ -1248,7 +1656,7 @@ function Configuration(){
     highlightColor: 'lightgreen',
     encoding : {
       mapping: { 0: "\u200B", 1: "\u200C", 2: "\u200D", 3: "\ufeff" },
-      delimiter: "\u200C",
+      delimiter: "\u200B",
       chunckSize: 6
     }
   };
@@ -1333,13 +1741,14 @@ function Configuration(){
 window.Aniways = (function(){
   var mapping = JSON.parse(localStorage.getItem('aniwaysMappings'));
   var assetsNamesToUrls = JSON.parse(localStorage.getItem('aniwaysAssets'));
-  var keywordsPath = "http://api.aniways.com/v2/keywords";
-  var assetsPath = "http://api.aniways.com/v2/assets";
+  var serverUrl = "http://api.aniways.com";
+  var keywordsPath = serverUrl + "/v2/keywords";
+  var assetsPath = serverUrl + "/v2/assets";
   var userId = localStorage.getItem('aniwaysUserId');
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
-  var sdkVersion = {"version": "2.3.2"};
+  var sdkVersion = {"version": "2.3.3"};
 
 
   if(userId === null){
@@ -1383,6 +1792,7 @@ window.Aniways = (function(){
     var encodedText = new Encoder(nodeToEncode, mapping, configuration).encodeText();
     var eventData = collectEventData(aniwaysDiv, encodedText);
     $(nodeToEncode)[0].innerHTML = "";
+    $(nodeToEncode).trigger("change");
     currentMessageID = guid();
     var mappingVersion;
     if(mapping !== null){
@@ -1394,36 +1804,51 @@ window.Aniways = (function(){
     return encodedText;
   }
 
-  function registerListners(){
-    $('.aniways-div').on('keyup input', function(){
-      if(configuration.isContextual() === false){return;}
-      var highlitedWords = highlighter.highlight(this);
-      addPopover(highlitedWords);
 
-      function addPopover(highlightedWords){
-        $.each(highlightedWords, function(index, word){
-          word = $(word);
-          word.attr('data-phrase', word.text().toLowerCase());
-          word.css('background-color', configuration.highlightColor);
-          $(word).popover({selector:'.aniways-highlight', html: true, placement: 'top', content: generatePopupHtml($(word)), trigger: 'manual'});
-        });
+  function registerListners(){
+
+    if(AniwaysUtil.isIE()){
+      $('.aniways-div').on('keyup', highlight);
+    } else {
+      $('.aniways-div').on('input', highlight);
+    }
+
+    function highlight(){
+      if(configuration.isContextual() === false){return;}
+
+      var highlightedWords = highlighter.highlight(this);
+
+      $.each(highlightedWords, function(index, word){
+        word = $(word);
+        addPopover(word);
+        word.Touchable();
+      });
+
+      function addPopover(word){
+        word.attr('data-phrase', word.text().toLowerCase());
+        word.popover({selector:'.aniways-highlight', html: true, placement: 'top', content: generatePopupHtml($(word)), trigger: 'manual'});
       }
-    });
+
+      $('.aniways-popover:visible').remove();
+      $('.aniways-highlight').removeClass('clicked');
+
+    }
 
     $('body').on('click', '.aniways-popover-image', function(evt){
       replaceWithImage(evt);
     });
 
-    $('body').on('click', '.aniways-highlight' ,function(evt) {
-      var word = $(evt.currentTarget);
+    $('body').on('tap', '.aniways-highlight' ,function(evt, touch) {
+      var word = $(touch.currentTarget);
       var popover = word.next('div.popover');
       var wasVisible = popover.is(':visible');
 
-      $('.popover:visible').prev().each(function (index, highlighted) {
+      $('.aniways-popover:visible').prev().each(function (index, highlighted) {
         $(highlighted).popover('hide');
+        $(highlighted).removeClass('clicked');
       });
 
-      if(!wasVisible){ word.popover('show'); }
+      if(!wasVisible){ word.popover('show'); word.addClass('clicked'); }
 
       var images = word.siblings('.popover.in').find('img.aniways-popover-image');
       var tapData = {phrase: word.data('phrase'), partToReplace: word.data('phrase'), suggestedIconName:[]};
@@ -1431,15 +1856,18 @@ window.Aniways = (function(){
         tapData.suggestedIconName.push(image.src.replace(/^.*[\\\/]/, ''));
 
       });
+      AniwaysUtil.placeCaretAfterNode(word[0]);
       analytics.tapAnalytics(userId, currentMessageID, mapping.version, tapData);
+      evt.preventDefault();
     });
 
     $('body').on('click', function (e) {
-      $('.popover:visible').prev().each(function () {
+      $('.aniways-popover:visible').prev().each(function () {
         //the 'is' for buttons that trigger popups
         //the 'has' for icons within a button that triggers a popup
         if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
           $(this).popover('hide');
+          $(this).removeClass('clicked');
         }
       });
     });
@@ -1465,7 +1893,7 @@ window.Aniways = (function(){
   }
 
   function ajaxError(request){
-    console.error('There was a problem with an ajax request, response code was ' + request.status);
+    console.error('There was a problem with an ajax request, response code was ' + request.response);
   }
 
   function setMapping(responseText){
@@ -1485,28 +1913,15 @@ window.Aniways = (function(){
     var img = $(evt.target);
     var span = img.parents('.popover').prev();
     span.popover('destroy');
-    span.remove();
     var placedImage = img.clone();
     placedImage.removeClass('aniways-popover-image').addClass('aniways-image');
     placedImage.css('height', configuration.inputImageSize());
     placedImage.removeAttr('onclick');
     placedImage.popover({placement: 'top', content:placedImage.data('phrase'), trigger: 'click'});
-    placeCaretAfterNode(placedImage[0]);
+    span.replaceWith(placedImage);
+    AniwaysUtil.placeCaretAfterNode(placedImage[0]);
     analytics.selectAnalytics(userId, currentMessageID, mapping.version, {phrase: placedImage[0].attributes['data-phrase'].value, iconName: placedImage[0].src.replace(/^.*[\\\/]/, ''), partToReplace: placedImage[0].attributes['data-phrase'].value});
-
-
-    function placeCaretAfterNode(node) {
-      var sel = rangy.getSelection();
-      if (sel.rangeCount) {
-        var range = sel.getRangeAt(0);
-        range.collapse(false);
-        range.insertNode(node);
-        range.collapseAfter(node);
-        sel.setSingleRange(range);
-      }
-    }
   }
-
   function generatePopupHtml(spanNode){
     var assets = "", imagePath, imageId;
     var phrase = spanNode.data('phrase');
@@ -1573,9 +1988,9 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         encodingData = {};
         encodingData.phraseStart = messageIndex;
         message = removeAndRecordImageID(encodingData, message, messageIndex);
-        message = removeAndRecordStartingDelimiter(encodingData, "subPhraseStart", message, messageIndex);
-        message = removeAndRecordEndingDelimiter(encodingData, "subPhraseEnd", message, messageIndex);
-        message = removeAndRecordEndingDelimiter(encodingData, "phraseEnd", message, messageIndex);
+        message = removeAndRecordDelimiter(encodingData, "subPhraseStart", message, messageIndex);
+        message = removeAndRecordDelimiter(encodingData, "subPhraseEnd", message, messageIndex);
+        message = removeAndRecordDelimiter(encodingData, "phraseEnd", message, messageIndex);
         messageEncodingData.data.push(encodingData);
         messageIndex = encodingData.phraseEnd;
         messageLength = message.length;
@@ -1595,21 +2010,12 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     return message.substr(0, messageIndex) + message.substr(messageIndex + imageEncodingLength + 1);
   }
 
-  function removeAndRecordStartingDelimiter(encodingData, section, message, messageIndex){
+  function removeAndRecordDelimiter(encodingData, section, message, messageIndex){
     encodingData[section] = message.indexOf(configuration.encoding().delimiter, messageIndex);
     if(encodingData[section] === -1){
       throw new AniwaysEncodingError("Can't find " + section + " delimiter");
     }
     return message.substr(0, encodingData[section]) + message.substr(encodingData[section] + 1);
-  }
-
-  function removeAndRecordEndingDelimiter(encodingData, section, message, messageIndex){
-    var indexOfDelimiter = message.indexOf(configuration.encoding().delimiter, messageIndex);
-    if(indexOfDelimiter === -1){
-      throw new AniwaysEncodingError("Can't find " + section + " delimiter");
-    }
-    encodingData[section] = indexOfDelimiter - 1;
-    return message.substr(0, indexOfDelimiter) + message.substr(indexOfDelimiter + 1);
   }
 
 
@@ -1633,9 +2039,9 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         html += "<img class='aniways-wall-image' style=height:" +
           configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" +
           strippedMessage.substring(
-            encodingData.subPhraseStart, encodingData.subPhraseEnd + 1) +
+            encodingData.subPhraseStart, encodingData.subPhraseEnd) +
           "'>";
-        start = encodingData.subPhraseEnd + 1;
+        start = encodingData.subPhraseEnd;
       }
     }
     html += strippedMessage.substring(start);
@@ -1773,6 +2179,7 @@ function Highlighter(mapping){
   var re = new RegExp(pattern, flag);
 
   this.highlight = function highlight (node) {
+
     var savedSel = saveSelection(node);
     var highlitedWords = [];
 
@@ -1780,7 +2187,7 @@ function Highlighter(mapping){
     var childNode, text;
     for(var i=0; i< childNodes.length; i++) {
       childNode = childNodes[i];
-      if( childNode.tagName === "SPAN") {
+      if( childNode.tagName === "SPAN" && childNode.className.indexOf('aniways-highlight') > -1) {
         text = $(childNode).text();
         $(childNode).replaceWith(document.createTextNode(text));
       }
@@ -1796,7 +2203,6 @@ function Highlighter(mapping){
         processText(textChildNode);
       }
     }
-
     restoreSelection(node, savedSel);
     return highlitedWords;
 
@@ -1805,13 +2211,20 @@ function Highlighter(mapping){
       while ((match = re.exec($(childNode).text())) !== null){
         var highlight = document.createElement('span');
         highlight.className = 'aniways-highlight';
-        var wordNode = childNode.splitText(match.index);
-        if(wordNode.data.length !== match[0].length){
+        var wordNode;
+        if(match.index === 0) {
+          wordNode = childNode;
+        } else {
+          wordNode = childNode.splitText(match.index);
+        }
+        if(wordNode.data.length > match[0].length){
           childNode = wordNode.splitText(match[0].length);
+        } else {
+          childNode = document.createTextNode('');
         }
         var wordClone = wordNode.cloneNode(true);
         highlight.appendChild(wordClone);
-        wordNode.parentNode.replaceChild(highlight, wordNode);
+        $(wordNode).replaceWith(highlight);
         highlitedWords.push(highlight);
       }
     }
@@ -1898,8 +2311,13 @@ function restoreSelection(containerEl, savedSel) {
   }
 
   var sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
+  var parentElement = range.endContainer.parentElement;
+  if(range.endContainer.parentElement.className.indexOf('aniways-highlight') > -1){
+    AniwaysUtil.placeCaretAfterNode(parentElement);
+  } else {
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
 }
 
 function AniwaysEncodingError(message) {
