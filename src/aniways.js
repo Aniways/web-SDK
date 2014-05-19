@@ -1157,6 +1157,10 @@ if (typeof WeakMap === 'undefined') {
         self.$tip.addClass('aniways-popover')
 
         self.$element.trigger('shown.bs.shown')
+        if(screen.width < 480){
+          var contentWidth = $tip.find('.popover-content').width();
+          $tip.find('.popover-content').width(contentWidth + this.width + 30);
+        }
       });
   }
 }($);
@@ -1748,7 +1752,7 @@ window.Aniways = (function(){
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
-  var sdkVersion = {"version": "2.3.3"};
+  var sdkVersion = {"version": "2.3.5"};
 
 
   if(userId === null){
@@ -1843,9 +1847,13 @@ window.Aniways = (function(){
       var popover = word.next('div.popover');
       var wasVisible = popover.is(':visible');
 
-      $('.aniways-popover:visible').prev().each(function (index, highlighted) {
-        $(highlighted).popover('hide');
-        $(highlighted).removeClass('clicked');
+      $('.aniways-popover:visible').each(function (index, popover) {
+        var highlighted = $(popover).prev();
+        highlighted.popover('hide');
+        if(screen.width < 480){
+          $(popover).find('.popover-content').width(0);
+        }
+        highlighted.removeClass('clicked');
       });
 
       if(!wasVisible){ word.popover('show'); word.addClass('clicked'); }
@@ -1856,18 +1864,21 @@ window.Aniways = (function(){
         tapData.suggestedIconName.push(image.src.replace(/^.*[\\\/]/, ''));
 
       });
-      AniwaysUtil.placeCaretAfterNode(word[0]);
       analytics.tapAnalytics(userId, currentMessageID, mapping.version, tapData);
       evt.preventDefault();
     });
 
     $('body').on('click', function (e) {
-      $('.aniways-popover:visible').prev().each(function () {
+      $('.aniways-popover:visible').each(function () {
         //the 'is' for buttons that trigger popups
         //the 'has' for icons within a button that triggers a popup
-        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
-          $(this).popover('hide');
-          $(this).removeClass('clicked');
+        var highlighted = $(this).prev();
+        if (!highlighted.is(e.target) && highlighted.has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+          highlighted.popover('hide');
+          highlighted.removeClass('clicked');
+          if(screen.width < 480){
+            $(this).find('.popover-content').width(0);
+          }
         }
       });
     });
@@ -2184,12 +2195,12 @@ function Highlighter(mapping){
     var highlitedWords = [];
 
     var childNodes = [].slice.call(node.childNodes);
-    var childNode, text;
+    var childNode, childTextContent;
     for(var i=0; i< childNodes.length; i++) {
       childNode = childNodes[i];
       if( childNode.tagName === "SPAN" && childNode.className.indexOf('aniways-highlight') > -1) {
-        text = $(childNode).text();
-        $(childNode).replaceWith(document.createTextNode(text));
+        childTextContent = childNode.childNodes[0];
+        $(childNode).replaceWith(childTextContent);
       }
     }
 
