@@ -1542,13 +1542,21 @@ if (typeof WeakMap === 'undefined') {
 var AniwaysUtil = (function AniwaysUtil(){
 
   function placeCaretAfterNode(node) {
-    var sel = rangy.getSelection();
-    if (sel.rangeCount) {
-      var range = sel.getRangeAt(0);
-      range.collapse(false);
-      range.collapseAfter(node);
-      sel.setSingleRange(range);
-    }
+     //get the browser selection object - it may or may not have a selected range
+    var selection = rangy.getSelection();
+
+    //create a range object to set the caret positioning for
+    var range = rangy.createRange();
+
+    //get the node of the element you wish to put the caret after
+
+    //set the caret after the node for this range
+    range.setStartAfter(node);
+    range.setEndAfter(node);
+
+    //apply this range to the selection object
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   function isAndroid(){
@@ -1660,7 +1668,7 @@ function Configuration(){
     highlightColor: 'lightgreen',
     encoding : {
       mapping: { 0: "\u200B", 1: "\u200C", 2: "\u200D", 3: "\ufeff" },
-      delimiter: "\u200B",
+      delimiter: "\u200C",
       chunckSize: 6
     }
   };
@@ -1752,7 +1760,7 @@ window.Aniways = (function(){
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
-  var sdkVersion = {"version": "2.3.5"};
+  var sdkVersion = {"version": "2.3.7"};
 
 
   if(userId === null){
@@ -1865,8 +1873,9 @@ window.Aniways = (function(){
 
       });
       analytics.tapAnalytics(userId, currentMessageID, mapping.version, tapData);
-      evt.preventDefault();
     });
+
+    $('.aniways-div').click(function(evt){ $(this).focus(); });
 
     $('body').on('click', function (e) {
       $('.aniways-popover:visible').each(function () {
@@ -1928,7 +1937,6 @@ window.Aniways = (function(){
     placedImage.removeClass('aniways-popover-image').addClass('aniways-image');
     placedImage.css('height', configuration.inputImageSize());
     placedImage.removeAttr('onclick');
-    placedImage.popover({placement: 'top', content:placedImage.data('phrase'), trigger: 'click'});
     span.replaceWith(placedImage);
     AniwaysUtil.placeCaretAfterNode(placedImage[0]);
     analytics.selectAnalytics(userId, currentMessageID, mapping.version, {phrase: placedImage[0].attributes['data-phrase'].value, iconName: placedImage[0].src.replace(/^.*[\\\/]/, ''), partToReplace: placedImage[0].attributes['data-phrase'].value});
@@ -1944,7 +1952,7 @@ window.Aniways = (function(){
       assets += "<img class='aniways-popover-image' style=height:" +
         configuration.popoverImageSize() + "px; src=" + imagePath + " data-phrase=" + phrase + "></img>";
     }
-    return "<div>" + assets + "</div>";
+    return assets;
   }
 
   return {
@@ -1999,9 +2007,9 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         encodingData = {};
         encodingData.phraseStart = messageIndex;
         message = removeAndRecordImageID(encodingData, message, messageIndex);
-        message = removeAndRecordDelimiter(encodingData, "subPhraseStart", message, messageIndex);
-        message = removeAndRecordDelimiter(encodingData, "subPhraseEnd", message, messageIndex);
-        message = removeAndRecordDelimiter(encodingData, "phraseEnd", message, messageIndex);
+        message = removeAndRecordStartingDelimiter(encodingData, "subPhraseStart", message, messageIndex);
+        message = removeAndRecordEndingDelimiter(encodingData, "subPhraseEnd", message, messageIndex);
+        message = removeAndRecordEndingDelimiter(encodingData, "phraseEnd", message, messageIndex);
         messageEncodingData.data.push(encodingData);
         messageIndex = encodingData.phraseEnd;
         messageLength = message.length;
@@ -2021,12 +2029,21 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     return message.substr(0, messageIndex) + message.substr(messageIndex + imageEncodingLength + 1);
   }
 
-  function removeAndRecordDelimiter(encodingData, section, message, messageIndex){
+  function removeAndRecordStartingDelimiter(encodingData, section, message, messageIndex){
     encodingData[section] = message.indexOf(configuration.encoding().delimiter, messageIndex);
     if(encodingData[section] === -1){
       throw new AniwaysEncodingError("Can't find " + section + " delimiter");
     }
     return message.substr(0, encodingData[section]) + message.substr(encodingData[section] + 1);
+  }
+
+  function removeAndRecordEndingDelimiter(encodingData, section, message, messageIndex){
+    var indexOfDelimiter = message.indexOf(configuration.encoding().delimiter, messageIndex);
+    if(indexOfDelimiter === -1){
+      throw new AniwaysEncodingError("Can't find " + section + " delimiter");
+    }
+    encodingData[section] = indexOfDelimiter - 1;
+    return message.substr(0, indexOfDelimiter) + message.substr(indexOfDelimiter + 1);
   }
 
 
@@ -2050,9 +2067,9 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
         html += "<img class='aniways-wall-image' style=height:" +
           configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" +
           strippedMessage.substring(
-            encodingData.subPhraseStart, encodingData.subPhraseEnd) +
+            encodingData.subPhraseStart, encodingData.subPhraseEnd + 1) +
           "'>";
-        start = encodingData.subPhraseEnd;
+        start = encodingData.subPhraseEnd + 1;
       }
     }
     html += strippedMessage.substring(start);
@@ -2322,9 +2339,9 @@ function restoreSelection(containerEl, savedSel) {
   }
 
   var sel = window.getSelection();
-  var parentElement = range.endContainer.parentElement;
-  if(range.endContainer.parentElement.className.indexOf('aniways-highlight') > -1){
-    AniwaysUtil.placeCaretAfterNode(parentElement);
+  var parentElement = $(range.endContainer).parent();
+  if(parentElement.hasClass('aniways-highlight')){
+    AniwaysUtil.placeCaretAfterNode(parentElement[0]);
   } else {
     sel.removeAllRanges();
     sel.addRange(range);
