@@ -1670,7 +1670,8 @@ function Configuration(){
       mapping: { 0: "\u200B", 1: "\u200C", 2: "\u200D", 3: "\ufeff" },
       delimiter: "\u200C",
       chunckSize: 6
-    }
+    },
+    assetsUrl: "http://aniways.blob.core.windows.net/aniways-assets/120/"
   };
   var storedConfiguration = JSON.parse(localStorage.getItem("aniwaysConfiguration"));
   var currentConfiguration = $.extend(currentConfiguration, defaultConfiguration, storedConfiguration);
@@ -1748,19 +1749,21 @@ function Configuration(){
     return newObj;
   }
 
+  this.assetsUrl = function(){
+    return currentConfiguration.assetsUrl;
+  };
+
 }
 
 window.Aniways = (function(){
   var mapping = JSON.parse(localStorage.getItem('aniwaysMappings'));
-  var assetsNamesToUrls = JSON.parse(localStorage.getItem('aniwaysAssets'));
   var serverUrl = "http://api.aniways.com";
   var keywordsPath = serverUrl + "/v2/keywords";
-  var assetsPath = serverUrl + "/v2/assets";
   var userId = localStorage.getItem('aniwaysUserId');
   var decoder, analytics, aniwaysDiv, highlighter, wallObserver;
   var currentMessageID = guid();
   var configuration = new Configuration();
-  var sdkVersion = {"version": "2.3.7"};
+  var sdkVersion = {"version": "2.3.9"};
 
 
   if(userId === null){
@@ -1775,7 +1778,7 @@ window.Aniways = (function(){
     if(userConfiguration !== undefined){
       configuration.userConfiguration(userConfiguration);
     }
-    decoder = new Decoder(mapping, assetsNamesToUrls, configuration);
+    decoder = new Decoder(mapping, configuration);
 
     if(appId === undefined){
       console.log("appId can not be undefined, please specify your appId in the init call");
@@ -1783,7 +1786,6 @@ window.Aniways = (function(){
     }
 
     AniwaysUtil.getJson(keywordsPath, {sdkVersion:sdkVersion.version, appId: appId}, setMapping);
-    AniwaysUtil.getJson(assetsPath, {sdkVersion:sdkVersion.version, appId: appId}, setAssets, ajaxError);
 
     analytics = new Analytics(appId, configuration);
 
@@ -1923,12 +1925,6 @@ window.Aniways = (function(){
     decoder.setMapping(mapping);
   }
 
-  function setAssets(responseText){
-    assetsNamesToUrls = JSON.parse(responseText).assets;
-    localStorage.setItem("aniwaysAssets", JSON.stringify(assetsNamesToUrls));
-    decoder.setAssetsToUrls(assetsNamesToUrls);
-  }
-
   function replaceWithImage(evt){
     var img = $(evt.target);
     var span = img.parents('.popover').prev();
@@ -1947,8 +1943,7 @@ window.Aniways = (function(){
     var imageCount = mapping.phrasesToIcons[phrase][""].length;
     for (var i=0; i< imageCount; i++){
       imageId = mapping.phrasesToIcons[phrase][""][i];
-      imagePath = assetsNamesToUrls[imageId + ".png"];
-      imagePath = imagePath.substring(0, imagePath.indexOf("::"));
+      imagePath = configuration.assetsUrl() + imageId + ".png";
       assets += "<img class='aniways-popover-image' style=height:" +
         configuration.popoverImageSize() + "px; src=" + imagePath + " data-phrase=" + phrase + "></img>";
     }
@@ -1961,11 +1956,9 @@ window.Aniways = (function(){
   };
 })();
 
-function Decoder(phraseMapping, assetsToUrls, configuration){
+function Decoder(phraseMapping, configuration){
 
   var _phraseMapping = phraseMapping;
-
-  var _assetsToUrls = assetsToUrls;
 
   var _unicodeMapping = configuration.decoding();
 
@@ -1981,10 +1974,6 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
 
   this.setMapping = function(mapping){
     _phraseMapping = mapping;
-  };
-
-  this.setAssetsToUrls = function(assets){
-    _assetsToUrls = assets;
   };
 
   function unicodeToDecimal(unicodeString){
@@ -2048,7 +2037,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
 
 
   function unicodeDecoding(message){
-    if (_phraseMapping === null || _assetsToUrls === null) { return message; }
+    if (_phraseMapping === null ) { return message; }
     var messageEncodingData = extractUnicodeEncodingData(message);
     var strippedMessage = messageEncodingData.message;
     var html = "";
@@ -2056,13 +2045,12 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     for (var i=0; i<messageEncodingData.data.length; i++ ) {
       var encodingData = messageEncodingData.data[i];
 
-      var imagePath = _assetsToUrls[encodingData.imageId + ".png"];
+      var imagePath = configuration.assetsUrl() + encodingData.imageId + ".png";
       if(imagePath === undefined){
         html += strippedMessage.substring(start, encodingData.phraseEnd);
         start = encodingData.phraseEnd;
 
       }else{
-        imagePath = imagePath.substring(0, imagePath.indexOf("::"));
         html += strippedMessage.substring(start, encodingData.subPhraseStart);
         html += "<img class='aniways-wall-image' style=height:" +
           configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" +
@@ -2095,8 +2083,7 @@ function Decoder(phraseMapping, assetsToUrls, configuration){
     var html = "";
     var start = 0;
     for (var j = 0; j < count; j++) {
-      var imagePath = _assetsToUrls[encodingData['id' + j] + ".png"];
-      imagePath = imagePath.substring(0, imagePath.indexOf("::"));
+      var imagePath = configuration.assetsUrl() + encodingData['id' + j] + ".png";
       html += originalMessage.substring(start, parseInt(encodingData['si' + j]));
       html += "<img class='aniways-wall-image' style=height:" +
         configuration.wallImageSize() + "px; src='" + imagePath + "'  title='" + originalMessage.substring(parseInt(encodingData['si' + j]), parseInt(encodingData['si' + j]) + parseInt(encodingData['l' + j])) + "'>";

@@ -517,6 +517,7 @@ hr {
   -moz-background-clip:    padding;
   background-clip:         padding-box;
   color: black;
+  padding: 2px;
 }
 
 .aniways-highlight.clicked {
